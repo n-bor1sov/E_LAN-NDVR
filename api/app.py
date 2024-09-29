@@ -8,7 +8,11 @@ import torch
 from torch import nn
 import cv2
 import torchvision.models as models
-import cv2
+from torchvision.transforms import v2
+from torch.nn import functional as F
+from qdrant_client import QdrantClient
+from qdrant_client.models import Distance, VectorParams
+from qdrant_client.models import PointStruct
 
 
 app = Flask(__name__)
@@ -74,14 +78,16 @@ googlenet.to(device)
 googlenet.eval()
 
 base_model = EmbeddingNet()
-base_model.load_state_dict(torch.load('../models/model_base.pt'))
+base_model.load_state_dict(torch.load('../models/model_base.pt', map_location=device))
 base_model.to(device)
 base_model.eval()
 
 model = LateFusionModel(base_model)
-model.load_state_dict(torch.load('../models/model.pt'))
+model.load_state_dict(torch.load('../models/model.pt', map_location=device))
 model.to(device)
 model.eval()
+
+client = QdrantClient(url="http://localhost:6333")
 
 def get_frames_emb(video):
     # Dictionary to store the maxpooled outputs for each Conv2d layer
@@ -135,13 +141,17 @@ def create_per_frame_embeddings(path):
     cap = cv2.VideoCapture(path)
     fps = cap.get(cv2.CAP_PROP_FPS)
     ret = True
+    
     while ret:
         ret, img = cap.read() # read one frame from the 'capture' object; img is (H, W, C)
         if ret and counter % (int(fps) // 2) == 0:
             img = torch.from_numpy(img).permute(2, 0, 1)/255
             frames.append(transforms(img))
         counter = (counter + 1) % (int(fps) // 2)
+        
+    
     video = torch.stack(frames) # dimensions (T, C, H, W)
+    
 
     # Create emb by maxpool from alexnet
     video = get_frames_emb(video)
@@ -218,13 +228,25 @@ def check_video_duplicate():
             return jsonify({'error': 'Missing link parameter'}), 400
 
         link = data['link']
-        video_id = UUID(link.split('/')[-1])  # Extract UUID from the link
+        print(link)
+        video_id = link.split('/')[-1].split('.mp4')[0]
+        print(video_id)# Extract UUID from the link
 
         download_video(link, str(video_id))
         
-        concatenated_frames = get_frames_emb(str(video_id))
+        full_filepath = f'../data/videos/{video_id}'
+        concatenated_frames = create_per_frame_embeddings(full_filepath)
         
-        print(concatenated_frames.shape)
+        embedding = create_video_emb(concatenated_frames)
+        
+        try:
+            os.remove(full_filepath)
+        except Exception as e:
+            print(f"Error: {e}")
+        
+        print(embedding.shape)
+        
+        return jsonify({'message': 'Video processed', 'video_id': str(video_id), 'frames_shape': concatenated_frames.shape}), 200
         
         # Скрипт для веторизации видео
         
