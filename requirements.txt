@@ -1,7 +1,7 @@
-torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
 opencv-python
-qdrant-client
 pandas
 qdrant-client
 tqdm
 flask
+numpy
+requests

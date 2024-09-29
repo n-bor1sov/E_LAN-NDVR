@@ -94,7 +94,7 @@ model.load_state_dict(torch.load('../models/model.pt', map_location=device))
 model.to(device)
 model.eval()
 
-client = QdrantClient(url="http://localhost:6333")
+client = QdrantClient(url="http://qdrant:6333")
 
 video_emb_dim = 500
 distance = Distance.EUCLID
