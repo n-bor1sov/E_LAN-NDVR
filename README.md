@@ -27,9 +27,51 @@
 
 
 ---
-## Как запускать решение
+
+## Перед клонированием
+
+Обязательно установить git-lfs
+
+```
+sudo apt-get install git-lfs
+git lfs install
+```
+## Как запускать сервис
+
+1) **Используя docker compose**
+```
+docker compose up --built
+```
+
+Ручка находится по адресу localhost:3010/
+
+2) Запускать нативно
+
+Установите зависимости `install_requirements.sh`
+
+
+Должен быть запущен локально qdrant через порт 6333
+
+```
+docker pull qdrant/qdrant
+
+docker run -p 6333:6333 -p 6334:6334 \
+    -v $(pwd)/qdrant_storage:/qdrant/storage:z \
+    qdrant/qdrant
 
 ```
 
+Запустите фласк `cd api/ && python app.py`
+
+Ручка находится по адресу localhost:3010/
+
+## Как тренировать модель
+
+В главной дирректории проекта доджен нахоиться распакованные папки с датасетами
+```
+|
+|-test_data_yappy
+|-train_data_yappy
 ```
 
+Далее переходим в `pipeline.ipynb` и запускаем ячейки

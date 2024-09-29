@@ -80,7 +80,11 @@ class LateFusionModel(nn.Module):
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 torch.hub.set_dir('../models/')
-googlenet = models.googlenet(weights="GoogLeNet_Weights.IMAGENET1K_V1")
+# Load your model architecture
+googlenet = models.googlenet(weights=None)
+
+# Load the state dict
+googlenet.load_state_dict(torch.load('../models/checkpoints/googlenet-1378be20.pth', map_location=device))
 googlenet.to(device)
 googlenet.eval()
 
