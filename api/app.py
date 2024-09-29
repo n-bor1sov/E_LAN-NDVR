@@ -98,7 +98,7 @@ model.load_state_dict(torch.load('../models/model.pt', map_location=device))
 model.to(device)
 model.eval()
 
-client = QdrantClient(url="http://qdrant:6333")
+client = QdrantClient(url="http://localhost:6333")
 
 video_emb_dim = 500
 distance = Distance.EUCLID
@@ -276,11 +276,14 @@ def check_video_duplicate():
                 duplicate_for = search_result[0].payload['link'].split('/')[-1].split('.mp4')[0]
                 response = VideoLinkResponse(is_duplicate=True, duplicate_for=duplicate_for)
                 return response.to_dict(), 200
-
+        print("aboba")
+        print(video_id)
+        print(link)
         client.upsert(
             collection_name="video",
-            points=[PointStruct(vector=embedding, payload={"uuid": video_id, "link": link})]
+            points=[PointStruct(id=hash(video_id), vector=embedding, payload={"uuid": video_id, "link": link})]
         )
+        print("bebra")
         response = VideoLinkResponse(is_duplicate=False, duplicate_for="")
         return response.to_dict(), 200
 
