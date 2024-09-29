@@ -4,3 +4,4 @@ qdrant-client
 pandas
 qdrant-client
 tqdm
+flask
