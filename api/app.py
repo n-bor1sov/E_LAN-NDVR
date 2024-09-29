@@ -267,7 +267,7 @@ def check_video_duplicate():
         ).points
         
         if len(search_result) > 0:
-            if search_result[0].score < 0.59:
+            if search_result[0].score < 0.69:
                 duplicate_for = search_result[0].payload['link'].split('/')[-1].split('.mp4')[0]
                 response = VideoLinkResponse(is_duplicate=True, duplicate_for=duplicate_for)
                 return response.to_dict(), 200
