@@ -79,6 +79,7 @@ class LateFusionModel(nn.Module):
 # Define a dictionary to store video duplicates (in a real-world scenario, this would be a database)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+torch.hub.set_dir('../models/')
 googlenet = models.googlenet(weights="GoogLeNet_Weights.IMAGENET1K_V1")
 googlenet.to(device)
 googlenet.eval()
