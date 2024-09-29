@@ -4,25 +4,13 @@ from tqdm import tqdm
 import torch
 from torchvision.transforms import v2
 import torch.nn as nn
-import torchvision.models as models
+
 import torch.utils
 import torch.utils.data
 from torch.nn import functional as F
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-googlenet = None
-base_model = None
-model = None
-
 
 def get_frames_emb(video):
-    # Check if model is initialized
-    global googlenet
-    if googlenet is None:
-        googlenet = models.googlenet(weights="GoogLeNet_Weights.IMAGENET1K_V1")
-        googlenet.to(device)
-        googlenet.eval()
-
     # Dictionary to store the maxpooled outputs for each Conv2d layer
     maxpooled_outputs = {}
 
@@ -104,72 +92,3 @@ def normalize_frames(video):
     return l2_normalized_emb
 
 
-class EmbeddingNet(nn.Module):
-    def __init__(self):
-        super(EmbeddingNet, self).__init__()
-        self.fc1 = nn.Linear(5488, 2500)  # Assuming input images are 28x28
-        self.fc2 = nn.Linear(2500, 1000)
-        self.fc3 = nn.Linear(1000, 500)  # Output embedding of size 500
-
-    def forward(self, x):
-        x = x.view(x.size(0), -1)  # Flatten the input
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.fc3(x)  # Output embedding
-        x = F.normalize(x, p=2, dim=1)  # Normalize embeddings to have unit norm
-        return x
-
-
-class LateFusionModel(nn.Module):
-    def __init__(self, base_model):
-        super(LateFusionModel, self).__init__()
-        self.base_model = base_model
-
-    def forward(self, frames):
-        # Process each frame independently
-        batch_size, num_frames, _, _ = frames.shape
-        frame_embeddings = []
-        for i in range(num_frames):
-            frame = frames[:, i, :, :]  # Extract each frame
-            embedding = self.base_model(frame)
-            frame_embeddings.append(embedding)
-
-        # Perform late fusion by averaging the embeddings of all frames
-        #fused_embedding = torch.stack(frame_embeddings, dim=1).mean(dim=1)
-        # averaging
-        fused_embedding = torch.mean(frame_embeddings, dim=0)
-        # zero mean
-        mean_value = torch.mean(fused_embedding)
-        zero_mean_emb = fused_embedding - mean_value
-        # l2
-        fused_embedding = torch.norm(fused_embedding, p=2)
-        fused_embedding = zero_mean_emb / fused_embedding
-
-        return fused_embedding
-
-
-def create_video_emb(video):
-    global base_model
-    global model
-
-    # Check if models are initialized
-    if base_model is None:
-        base_model = EmbeddingNet()
-        base_model.load_state_dict(torch.load('models/model_base.pt'))
-        base_model.to(device)
-        base_model.eval()
-
-    if model is None:
-        model = LateFusionModel(base_model)
-        model.load_state_dict(torch.load('models/model.pt'))
-        model.to(device)
-        model.eval()
-
-    # Apply aggregation and l2 norm
-    video = normalize_frames(video)
-
-    # Forward pass
-    with torch.no_grad():
-        video_emb = base_model(video.unsqueeze(0).to(device)).detach().cpu().numpy()[0]
-
-    return video_emb

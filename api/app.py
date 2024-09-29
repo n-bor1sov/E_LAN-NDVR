@@ -13,7 +13,7 @@ from torch.nn import functional as F
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
 from qdrant_client.models import PointStruct
-
+from typing import Dict, Any
 
 app = Flask(__name__)
 
@@ -26,6 +26,12 @@ class VideoLinkResponse:
     def __init__(self, is_duplicate: bool, duplicate_for: str = None):
         self.is_duplicate = is_duplicate
         self.duplicate_for = duplicate_for
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "is_duplicate": self.is_duplicate,
+            "duplicate_for": self.duplicate_for
+        }
 
 class EmbeddingNet(nn.Module):
     def __init__(self):
@@ -88,6 +94,15 @@ model.to(device)
 model.eval()
 
 client = QdrantClient(url="http://localhost:6333")
+
+video_emb_dim = 500
+distance = Distance.EUCLID
+
+if not client.collection_exists(collection_name="video"):
+    client.create_collection(
+        collection_name="video",
+        vectors_config=VectorParams(size=video_emb_dim, distance=distance)
+    )
 
 def get_frames_emb(video):
     # Dictionary to store the maxpooled outputs for each Conv2d layer
@@ -244,22 +259,25 @@ def check_video_duplicate():
         except Exception as e:
             print(f"Error: {e}")
         
-        print(embedding.shape)
+        search_result = client.query_points(
+            collection_name="video",
+            query=embedding,
+            with_payload=True,
+            limit=1
+        ).points
         
-        return jsonify({'message': 'Video processed', 'video_id': str(video_id), 'frames_shape': concatenated_frames.shape}), 200
-        
-        # Скрипт для веторизации видео
-        
-        # Скрипт для эмбединга видео
-        
-        # Скрипт для запроса к Qdrant
-        
-        # Simulate a duplicate check (in a real-world scenario, this would be a database query)
-        # if video_id in video_duplicates:
-        #     return jsonify(VideoLinkResponse(is_duplicate=True, duplicate_for=str(video_id)).to_dict()), 200
-        # else:
-        #     video_duplicates[video_id] = True
-        #     return jsonify(VideoLinkResponse(is_duplicate=False).to_dict()), 200
+        if len(search_result) > 0:
+            if search_result[0].score < 0.59:
+                duplicate_for = search_result[0].payload['link'].split('/')[-1].split('.mp4')[0]
+                response = VideoLinkResponse(is_duplicate=True, duplicate_for=duplicate_for)
+                return response.to_dict(), 200
+
+        client.upsert(
+            collection_name="video",
+            points=[PointStruct(vector=embedding, payload={"uuid": video_id, "link": link})]
+        )
+        response = VideoLinkResponse(is_duplicate=False, duplicate_for="")
+        return response.to_dict(), 200
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
