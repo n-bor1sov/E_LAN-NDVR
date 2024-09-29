@@ -49,6 +49,10 @@ docker compose up --built
 
 Установите зависимости `install_requirements.sh`
 
+Измените api/app.py 
+
+client = QdrantClient(url="http://qdrant:6333") на client = QdrantClient(url="http://localhost:6333")
+
 
 Должен быть запущен локально qdrant через порт 6333
 
